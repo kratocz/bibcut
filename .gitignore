@@ -30,4 +30,5 @@ startlist*.csv
 .idea/
 .vscode/
 .DS_Store
+._*
 .env

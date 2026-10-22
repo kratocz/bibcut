@@ -10,15 +10,35 @@ bibcut identifies race participants in video by the number on their jersey/bib a
 
 ## Status
 
-Pre-implementation. The current goal is milestone **M1** (see SPEC §10). Do not build features beyond the current milestone without asking.
+Scaffolded; working towards milestone **M1** (see SPEC §10). Do not build features beyond the current milestone without asking.
 
-## Stack (proposed — confirm before scaffolding)
+## Stack
 
-- Python 3.12+, managed with `uv`; `ruff` for lint/format; `pytest` for tests
-- Video decoding via PyAV or OpenCV; cutting via the `ffmpeg` CLI
-- Detection/tracking, pose and number recognition each behind a small interface so backends can be swapped
+- Python 3.12+, managed with `uv` (build backend `uv_build`, `src/` layout); `ruff` for lint/format; `pytest` for tests
+- Video decoding via PyAV or OpenCV (not chosen yet); metadata via the `ffprobe` CLI, cutting via the `ffmpeg` CLI
+- Detection/tracking (with pose) and number recognition each behind a protocol in `src/bibcut/interfaces.py`, so backends can be swapped
 
-Fill in the real commands here once the project is scaffolded.
+## Commands
+
+```sh
+uv sync                      # create .venv and install
+uv run pytest                # tests (needs ffmpeg on PATH; video tests skip without it)
+uv run ruff check            # lint
+uv run ruff format           # format
+uv run bibcut probe VIDEO    # print video metadata as JSON
+```
+
+## Layout
+
+- `src/bibcut/models.py` — data passed between stages (frames, detections, tracklets, readings, appearances)
+- `src/bibcut/interfaces.py` — backend protocols
+- `src/bibcut/cache.py` — per-stage output cache keyed by input fingerprint + stage parameters
+- `src/bibcut/config.py` — optional TOML run config (SPEC §4)
+- `src/bibcut/probe.py`, `src/bibcut/cli.py` — ffprobe wrapper and CLI
+
+## Sample footage
+
+The development footage (SPEC §12) is read in place from an external disk and never copied into the repository. The local disk is tight: keep the whole working tree, including `data/` and `.venv`, under ~1 GiB, and check `du -sh` before extracting frames or caching stage output in bulk. Prefer the `.LRV` proxies for anything that does not need 4K.
 
 ## Hard rules
 
