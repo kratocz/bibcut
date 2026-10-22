@@ -23,6 +23,7 @@ Keypoint = tuple[float, float, float]
 class Frame:
     """One decoded frame."""
 
+    # Position in the decoded (possibly sampled) sequence; use `pts` for time.
     index: int
     pts: float
     image: npt.NDArray[np.uint8] = field(repr=False)

@@ -15,7 +15,7 @@ Scaffolded; working towards milestone **M1** (see SPEC §10). Do not build featu
 ## Stack
 
 - Python 3.12+, managed with `uv` (build backend `uv_build`, `src/` layout); `ruff` for lint/format; `pytest` for tests
-- Video decoding via PyAV or OpenCV (not chosen yet); metadata via the `ffprobe` CLI, cutting via the `ffmpeg` CLI
+- Video decoding, metadata and cutting all via the `ffmpeg`/`ffprobe` CLI as subprocesses. Do not switch decoding to PyAV: its binary wheels bundle `libx264`/`libx265` (GPL), which the licensing rule below keeps out of the core. Hardware decoding: `hwaccel="videotoolbox"` on macOS
 - Detection/tracking (with pose) and number recognition each behind a protocol in `src/bibcut/interfaces.py`, so backends can be swapped
 
 ## Commands
@@ -34,6 +34,7 @@ uv run bibcut probe VIDEO    # print video metadata as JSON
 - `src/bibcut/interfaces.py` — backend protocols
 - `src/bibcut/cache.py` — per-stage output cache keyed by input fingerprint + stage parameters
 - `src/bibcut/config.py` — optional TOML run config (SPEC §4)
+- `src/bibcut/decode.py` — streaming RGB frames with PTS from `ffmpeg` (sampling, resize, time range, hwaccel) and GoPro proxy lookup
 - `src/bibcut/probe.py`, `src/bibcut/cli.py` — ffprobe wrapper and CLI
 
 ## Sample footage

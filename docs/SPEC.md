@@ -69,7 +69,7 @@ ffmpeg -i race.mp4 \
 
 ## 6. Pipeline
 
-1. **Decode** frames with presentation timestamps (PTS); support variable-frame-rate footage.
+1. **Decode** frames with presentation timestamps (PTS); support variable-frame-rate footage. Decoding runs the `ffmpeg` CLI as a subprocess (licensing: binary FFmpeg bundled in Python wheels such as PyAV's includes GPL encoders). When a GoPro proxy exists, detection and tracking read the proxy and only number reading touches the full-resolution file.
 2. **Detect & track** people → *tracklets* (track id, per-frame bbox, timestamps). A pose model provides keypoints in the same pass.
 3. **Filter** tracklets outside the track region of interest or too short (spectators, marshals).
 4. **Torso crop** from pose keypoints (shoulders → hips), for both front and back views.
@@ -117,7 +117,7 @@ Each stage caches its output so later stages can be re-run without re-processing
 
 - ~~Camera setup at target races~~ — answered by the sample footage (section 12).
 - ~~Number format~~ — answered by the sample footage (section 12).
-- Does the GoPro LRV proxy share the exact timeline of its MP4, so detection and tracking can run on the proxy and only number reading on 4K crops? (Durations match; frame-level alignment not verified.)
+- ~~Does the GoPro LRV proxy share the exact timeline of its MP4?~~ — yes (section 12).
 - Heat structure: the results show six columns per rider and category, presumably rounds. Can a heat schedule be recovered, to cross-check participation intervals?
 - OCR backend: PARSeq vs PaddleOCR vs a small local VLM.
 - Detector/tracker backend and its license.
@@ -131,7 +131,8 @@ Observed on 2026-10-22 from contact sheets and a handful of full-resolution fram
 - **Cameras:** two GoPros as a stereo pair (left/right, for 3D), recording almost continuously; 7.3 h per camera, ~380 GB each.
 - **Format:** 3840×2160 HEVC, 119.88 fps until ~15:30, then 100 fps. Constant frame rate per file, but time must still come from PTS.
 - **Chapters:** GoPro splits long recordings into chapter files (`GX01nnnn`, `GX02nnnn`, `GX03nnnn` = one recording), so one recording can span several files.
-- **Proxies:** every MP4 has an `.LRV` proxy (768×432 H.264, same fps and duration) — a candidate input for detection and tracking.
+- **Proxies:** every MP4 has an `.LRV` proxy (768×432 H.264). Its timeline matches the MP4 frame for frame: identical PTS lists (7805 frames in `GX010206`), and LRV frame *n* matches the downscaled MP4 frame *n* at both ends of the file (pixel MSE ~17 at offset 0 vs ≥ 360 at ±1).
+- **Decoding speed** (M1 Max, 10 s of 4K at 119.88 fps): software HEVC 57 fps, VideoToolbox 239 fps, LRV 1421 fps. One camera's day (7.3 h) is therefore ~15 h, ~3.7 h and ~37 min of pure decoding. Through `bibcut.decode` with 10 fps sampling: LRV ~15× real time, 4K via VideoToolbox scaled to 1080p ~1.6× real time.
 - **Camera placement:** mostly on a gallery above the track, static within a file and moved between files. It sees almost the whole circuit. A few files are from track level, the pit or the registration area.
 - **Lighting:** indoor hall, warm cast, low light; frames are soft (compression, some motion blur).
 - **Numbers:** 1–3 digits, 5–268 at this event (58 of the 74 have three digits). Black digits on a white rectangle on a black jersey, with the "xERACE" logo above and below — high contrast.
