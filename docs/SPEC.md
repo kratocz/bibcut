@@ -1,18 +1,21 @@
 # bibcut — specification
 
-> Draft v0.1 (2026-10-22). Living document — update it together with design decisions.
+> Draft v0.2 (2026-10-23). Living document — update it together with design decisions.
 
 ## 1. Background
 
-At an amateur race in Prague, about 20 riders on electric longboards, OneWheels and similar boards raced on a circuit. Each rider wore a jersey with a start number on the front (often hard to see — arms, posture, angle) and on the back. A camera filmed the riders as they passed.
+At an amateur race in Prague (xErace, 2025-05-17, an indoor karting hall), 74 riders raced on a circuit in several categories: OneWheel, electric unicycles (EUC, incl. juniors), Open e-skate (incl. 2WD) and Street; some riders entered more than one category. Each rider wore a jersey with a start number on the front (often hard to see — arms, posture, angle) and on the back. A pair of cameras filmed the race, mostly from a gallery overlooking almost the whole track (see section 12).
 
 Finding by hand when each rider was on screen is tedious. bibcut automates it.
 
 ## 2. Goals
 
 1. **Identify riders by start number** (front or back of the jersey/bib).
-2. **Per-rider in-frame intervals** covering the whole appearance — not only the frames where the number is legible.
-   *Example:* a rider enters the frame at 0:01:20 with the chest number hidden by an arm; at 0:01:23 they pass the camera and the back number becomes legible; they leave the frame at 0:01:26. The rider's list gets **0:01:20 – 0:01:26**.
+2. **Per-rider intervals** covering the whole appearance — not only the frames where the number is legible. Two interval modes:
+   - **Participation** (M1): when the rider was on the track. With a camera that sees the whole circuit this is roughly the rider's heat, so the timeline answers "in which heats did #250 ride, and when".
+   - **Near camera** (M2, switchable): when the rider was close to the camera and large in frame — the moments worth cutting into a per-rider highlight.
+
+   *Example (near camera):* a rider enters the near part of the frame at 0:01:20 with the chest number hidden by an arm; at 0:01:23 the back number becomes legible; they leave at 0:01:26. The rider's list gets **0:01:20 – 0:01:26**.
 3. **Optional start list** mapping number → name (and team, category, …).
 4. **Exports:** machine-readable intervals (JSON, CSV), YouTube description text with per-rider timestamps, and ffmpeg commands (or rendered clips) with a per-rider highlight cut.
 5. **Manual review** of appearances whose number could not be read, so a human can resolve them in a few clicks.
@@ -81,7 +84,10 @@ Each stage caches its output so later stages can be re-run without re-processing
 
 ## 7. Known hard cases
 
-- Board riders stand sideways: depending on stance (regular/goofy) and direction, a trackside camera sees the chest of some riders and the back of others, so both numbers must be supported.
+- Board riders stand sideways: depending on stance (regular/goofy) and direction, a trackside camera sees the chest of some riders and the back of others, so both numbers must be supported. In the middle of a pass a board rider may show only their side, with no number visible at all. EUC riders face forward.
+- Riders off the track wear numbered jerseys too — waiting at the barrier, in the pit, walking around — and stand closer to the camera than the racers, so their numbers are often *more* legible. Without the track region filter they would be credited with participation.
+- Riders on the far side of the track are too small to read (number patch visible, digits not); legibility comes from the parts of the lap closer to the camera.
+- Partially hidden numbers read as a valid shorter number (e.g. "53" from "253" or "153"); constraining to the start list does not resolve this on its own.
 - Chest number occluded by arms or posture.
 - Digit confusions (6/9, 1/7), partially visible numbers, motion blur.
 - Riders overlapping in a pack → tracker ID switches.
@@ -103,15 +109,31 @@ Each stage caches its output so later stages can be re-run without re-processing
 ## 10. Milestones
 
 - **M0** — repository, spec, agent guidance.
-- **M1** — CLI: on one real video, generates intervals for most riders and ffmpeg makes cuts from them. → **switch the repository to public.**
-- **M2** — start list mapping, YouTube export, manual review flow.
+- **M1** — CLI: on one real video, generates participation intervals for most riders and ffmpeg makes cuts from them. → **switch the repository to public.**
+- **M2** — start list mapping, YouTube export, manual review flow, near-camera interval mode.
 - **M3** — robustness: handheld footage, multiple videos per event, packaging.
 
 ## 11. Open questions
 
-- Camera setup at target races: tripod vs handheld, one or several cameras, resolution and fps?
-- Number format: digits only, range (1–99?), font and jersey design.
+- ~~Camera setup at target races~~ — answered by the sample footage (section 12).
+- ~~Number format~~ — answered by the sample footage (section 12).
+- Does the GoPro LRV proxy share the exact timeline of its MP4, so detection and tracking can run on the proxy and only number reading on 4K crops? (Durations match; frame-level alignment not verified.)
+- Heat structure: the results show six columns per rider and category, presumably rounds. Can a heat schedule be recovered, to cross-check participation intervals?
 - OCR backend: PARSeq vs PaddleOCR vs a small local VLM.
 - Detector/tracker backend and its license.
 - Review UI: CLI/TUI vs a small local web page.
-- Sample footage for development — source and riders' consent.
+- Sample footage for development — riders' consent for anything that leaves the local machine (test fixtures stay synthetic).
+
+## 12. Sample footage (xErace 2025-05-17)
+
+Observed on 2026-10-22 from contact sheets and a handful of full-resolution frames. The footage itself stays outside the repository.
+
+- **Cameras:** two GoPros as a stereo pair (left/right, for 3D), recording almost continuously; 7.3 h per camera, ~380 GB each.
+- **Format:** 3840×2160 HEVC, 119.88 fps until ~15:30, then 100 fps. Constant frame rate per file, but time must still come from PTS.
+- **Chapters:** GoPro splits long recordings into chapter files (`GX01nnnn`, `GX02nnnn`, `GX03nnnn` = one recording), so one recording can span several files.
+- **Proxies:** every MP4 has an `.LRV` proxy (768×432 H.264, same fps and duration) — a candidate input for detection and tracking.
+- **Camera placement:** mostly on a gallery above the track, static within a file and moved between files. It sees almost the whole circuit. A few files are from track level, the pit or the registration area.
+- **Lighting:** indoor hall, warm cast, low light; frames are soft (compression, some motion blur).
+- **Numbers:** 1–3 digits, 5–268 at this event (58 of the 74 have three digits). Black digits on a white rectangle on a black jersey, with the "xERACE" logo above and below — high contrast.
+- **Number size at 4K:** riders on the near side of the track, digits ~35–50 px tall, legible. Middle of the hall, often side-on with no number visible. Far side, digits not legible.
+- **Results:** per-category results with start numbers exist (published as screenshots on the organiser's website), so a start list can be built for the event.
