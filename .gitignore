@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+dist/
+build/
+*.egg-info/
+
+# Data — never commit footage, frames, crops, start lists or model weights
+data/
+output/
+*.mp4
+*.MP4
+*.mov
+*.MOV
+*.mkv
+*.avi
+*.m4v
+*.pt
+*.pth
+*.onnx
+*.engine
+startlist*.csv
+!tests/fixtures/**
+
+# IDE / OS / secrets
+.idea/
+.vscode/
+.DS_Store
+.env
