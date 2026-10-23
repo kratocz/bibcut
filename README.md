@@ -135,6 +135,18 @@ bibcut identifies people only by the number they wear. There is no face recognit
 
 Next (M2): a review step for unresolved tracks and doubtful numbers, and a "near camera" mode that keeps only the moments a rider is close. See [docs/SPEC.md](docs/SPEC.md) for the design and the milestones.
 
+## Contributing
+
+Issues are welcome, especially about footage where bibcut does poorly: describe the camera position, resolution and frame rate, and attach frames only if you are allowed to share them.
+
+Pull requests are welcome too. Before sending one:
+
+- run `uv run pytest`, `uv run ruff check` and `uv run ruff format`;
+- add no dependency or code under GPL, AGPL or a non-commercial license, including native libraries a package's wheels bundle (which rules out PyAV and OpenCV);
+- never commit videos, frames, crops, start lists with names or model weights — tests use small synthetic videos generated on the fly.
+
+[AGENTS.md](AGENTS.md) has the full rules and the project layout (it is written for coding agents but applies to people as well), and [docs/SPEC.md](docs/SPEC.md) the design; if a change goes against the spec, update the spec in the same pull request or open an issue first.
+
 ## License
 
 [MIT](LICENSE) © 2026 Petr Kratochvil
