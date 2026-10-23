@@ -1,31 +1,122 @@
 # bibcut
 
-Find every rider in race footage by their start number — and turn it into per-rider timelines, YouTube timestamps and highlight cuts.
+Find every rider in race footage by the start number on their jersey. bibcut tracks people through the video, reads their numbers whenever they become legible, and gives you each rider's on-camera intervals plus ready-to-run ffmpeg cuts of their moments.
 
-> **Status:** early development (pre-alpha). Nothing works yet; see [docs/SPEC.md](docs/SPEC.md) for what is planned.
+<p align="center">
+  <img src="docs/media/tracking.webp" width="100%" alt="Trackside race footage: riders coming off the track are tracked with boxes; identified riders carry a yellow label with their start number, which follows them even when the number is turned away or too close to read">
+</p>
+<p align="center"><sub>Real output on trackside footage from an indoor race of electric boards and unicycles (xErace, Prague, 2025). Yellow: riders bibcut identified. The label covers the rider's whole track, including the moments their number cannot be read. Grey: people it tracks but has not identified.</sub></p>
 
-## What it will do
+## Status
 
-Point bibcut at a video of a race on a circuit (electric skateboards, OneWheels, bikes, runners — anyone wearing a number on the chest or back) and it will:
+It works end to end on real footage (milestone M1, October 2026). On a whole 7.8-minute trackside video, bibcut gave intervals to **23 of the 42 riders** whose numbers are legible in the footage (labelled blind, without bibcut's output), and **1 of the 24 riders it named was wrong**; details and caveats are in [docs/SPEC.md §12](docs/SPEC.md#12-sample-footage-xerace-2025-05-17). It needs a camera at track level: from a spectator gallery, racing riders are side-on and their numbers are rarely visible. Expect rough edges — this is pre-1.0 software.
 
-1. detect and track every rider in the footage,
-2. read the number on their jersey or bib — front or back — whenever it becomes legible,
-3. credit the rider for the **whole** time they were in frame, including the seconds before the number could be read,
-4. optionally map numbers to names from a start list,
-5. export per-rider intervals as JSON/CSV, YouTube description timestamps, and ffmpeg cuts of each rider's moments.
+## Install
 
-```text
-#7   Rider Name
-     00:01:20 – 00:01:26
-     00:03:41 – 00:03:49
-#12  Another Rider
-     00:01:22 – 00:01:27
+You need [uv](https://docs.astral.sh/uv/), Python 3.12+ (uv can install it) and [ffmpeg](https://ffmpeg.org/) with ffprobe on your `PATH`.
+
+```sh
+brew install uv ffmpeg            # macOS; on Linux use your package manager
+git clone https://github.com/kratocz/bibcut.git
+cd bibcut
+uv sync
+uv run bibcut --help
 ```
 
-## How it works (in short)
+On first use bibcut downloads two models (~130 MB) to `~/.cache/bibcut/models` (override with `BIBCUT_MODELS_DIR`) and checks each against a pinned SHA-256. Everything runs locally on the CPU; on macOS, video decoding and encoding use the hardware media engine (VideoToolbox) automatically.
 
-Person detection and multi-object tracking split the video into *tracklets* (one rider, one continuous appearance). A number read anywhere inside a tracklet labels the entire tracklet; per-frame readings are combined by confidence-weighted voting. Tracklets with the same number are then merged into a per-rider timeline. Tracklets whose number is never legible go to a short manual review.
+## Usage
+
+```sh
+uv run bibcut intervals race.mp4 --startlist startlist.csv
+```
+
+The start list is optional but strongly recommended: a CSV with a `number` column and optionally `name` (other columns are ignored). Only numbers on the list are credited, which filters out many misreadings.
+
+```csv
+number,name
+7,Jane Doe
+218,John Smith
+```
+
+This writes to `data/out/race/`:
+
+- `intervals.json` and `intervals.csv` — every rider's appearances, plus the tracks it could not identify:
+
+  ```json
+  {
+    "number": "218",
+    "name": "John Smith",
+    "appearances": [
+      { "start": 259.501, "end": 268.301, "confidence": 0.874, "source": "auto" },
+      { "start": 376.502, "end": 402.101, "confidence": 0.774, "source": "auto" }
+    ]
+  }
+  ```
+
+- `cuts/rider-<number>.sh` — one ffmpeg command per rider that joins their appearances into a single video:
+
+  ```sh
+  sh data/out/race/cuts/rider-218.sh      # → data/out/race/cuts/rider-218.mp4
+  ```
+
+All riders of the 7.8-minute sample video on one timeline:
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/media/timeline-dark.png">
+  <img src="docs/media/timeline-light.png" alt="Timeline chart: one row per start number, bars for each interval in which that rider is on camera during the 7.8-minute video">
+</picture>
+
+Useful options:
+
+| Option | What it does |
+|---|---|
+| `--start 120 --end 300` | process only part of the video (seconds) |
+| `--config bibcut.toml` | tune `merge_gap` (join appearances closer than this, default 2 s), `padding` (default 0.5 s) and `min_appearance` (default 1 s) |
+| `--min-votes 2.0` | how much evidence a number needs before it is credited; lower finds more riders and makes more mistakes |
+| `--workdir DIR` | where intermediate results are cached (default `data/work/<video>`); re-runs with other options reuse them |
+| `--hwaccel none` | decode and encode in software (e.g. off macOS or for debugging) |
+
+A 7.8-minute 4K GoPro clip takes about 20 minutes on a MacBook. If a GoPro low-resolution proxy (`.LRV`) sits next to the video, detection uses it and only number reading touches the 4K file. The other commands — `probe`, `track` and `identify` — run the earlier stages alone and print JSON, which helps when tuning.
+
+## How it works
+
+```mermaid
+flowchart LR
+    V[Video] --> D[Detect people<br/>RF-DETR]
+    D --> T[Track them<br/>into tracklets]
+    T --> C[Crop torsos<br/>from full res]
+    C --> R[Read digits<br/>PP-OCRv5]
+    R --> W[Vote per tracklet<br/>start list]
+    W --> M[Merge per rider<br/>gap & padding]
+    M --> O[intervals.json/csv<br/>ffmpeg cuts]
+```
+
+A rider's number is legible only now and then: too far, side-on, blurred, or too close to fit. So bibcut does not label frames, it labels *tracklets* — one person followed continuously. Every torso crop of a tracklet is read, the readings vote, and the winning number is credited for the tracklet's whole length:
+
+<p align="center">
+  <img src="docs/media/reading.jpg" width="100%" alt="Six torso crops of one rider over time with their readings: 748 when far away, 218 three times at medium distance, 18 when partly cut off, nothing legible when too close; the vote over 123 crops gives 218 with 13.2 against 28 with 1.8, credited for the whole 24.6-second tracklet">
+</p>
+
+Tracklets with the same number are merged into the rider's timeline. Tracks whose number is never legible end up in the `unresolved` list instead of being guessed.
+
+## Limits
+
+- Numbers have to face the camera at some point: trackside or finish-line cameras work, a gallery view of a whole circuit does not.
+- Motion blur limits reading more than resolution does; a faster shutter should help.
+- An incomplete start list hurts: a rider missing from it can be credited to a listed number that matches part of theirs (263 → 63).
+- When two riders cross, a tracklet can switch from one to the other, and the cut then holds a few seconds of someone else.
+
+## Privacy
+
+bibcut identifies people only by the number they wear. There is no face recognition, nothing leaves your machine, and the models are run locally.
+
+## Roadmap
+
+Next (M2): a review step for unresolved tracks and doubtful numbers, YouTube description timestamps, and a "near camera" mode that keeps only the moments a rider is close. See [docs/SPEC.md](docs/SPEC.md) for the design and the milestones.
 
 ## License
 
 [MIT](LICENSE) © 2026 Petr Kratochvil
+
+bibcut downloads model weights, it does not ship them: RF-DETR Small (Apache-2.0; a third-party ONNX export of Roboflow's model) and PaddlePaddle's PP-OCRv5 English recognizer (Apache-2.0). ffmpeg is called as an external program.

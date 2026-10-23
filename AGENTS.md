@@ -50,6 +50,7 @@ Model weights download on first use to `~/.cache/bibcut/models` (override with `
 - `src/bibcut/timeline.py` — per-rider appearances from identified tracklets (merge gap, minimum appearance, padding) and the unresolved list
 - `src/bibcut/export.py` — `intervals.json`, `intervals.csv` and one ffmpeg cut script per rider
 - `src/bibcut/probe.py`, `src/bibcut/cli.py` — ffprobe wrapper and CLI
+- `docs/media/` — README illustrations (see the data rule below)
 
 ## Sample footage
 
@@ -57,7 +58,7 @@ The development footage (SPEC §12) is read in place from an external disk and n
 
 ## Hard rules
 
-- **Never commit data:** videos, extracted frames, rider crops, start lists with real names, or model weights. They are personal data and/or large. Everything lives under `data/` (gitignored). Tests use tiny synthetic fixtures in `tests/fixtures/`.
+- **Never commit data:** videos, extracted frames, rider crops, start lists with real names, or model weights. They are personal data and/or large. Everything lives under `data/` (gitignored). Tests use tiny synthetic fixtures in `tests/fixtures/`. The one exception is `docs/media/`: a few small README illustrations cut from the sample footage, published with the consent of the footage's author (2026-10-23). Add or replace them only when asked, and keep each file small: history keeps every version.
 - **Licensing:** the project is MIT. Do not add dependencies or copied code under GPL/AGPL or non-commercial licenses to the core. `mkoshkina/jersey-number-pipeline` (CC BY-NC 3.0) is a design reference only — do not copy its code. An AGPL backend (e.g. Ultralytics) may only be added as an optional, separately installed extra, and only after asking. A dependency's license includes the native libraries its wheels bundle: PyAV, OpenCV and packages requiring them are out (SPEC §9). Before adding any dependency with native code, list the libraries in its macOS and Linux wheels.
 - **Model weights** are never committed or redistributed. They are downloaded from a pinned URL, verified against a pinned SHA-256, and need a stated permissive license.
 - **No face recognition.** Riders are identified by their number only.

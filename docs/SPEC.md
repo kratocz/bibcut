@@ -131,7 +131,7 @@ Each stage caches its output so later stages can be re-run without re-processing
 - ~~Detector/tracker backend and its license~~ — RF-DETR Small + own tracker (section 6, step 2).
 - RF-DETR ONNX provenance: the official weights are PyTorch only; M1 uses a third-party ONNX export (Hugging Face `saifkhichi96/opendetect`, card license apache-2.0) pinned by SHA-256. It works on our footage, but equality with the official weights is not verified. Fallback if it disappears: export from the official weights (needs PyTorch) and mirror the file in a release of this repository (Apache 2.0 allows it).
 - Review UI: CLI/TUI vs a small local web page.
-- Sample footage for development — riders' consent for anything that leaves the local machine (test fixtures stay synthetic).
+- Sample footage for development — riders' consent for anything that leaves the local machine (test fixtures stay synthetic). Decided 2026-10-23 by the footage's author: a short annotated clip, one rider's crops and a timeline chart from `GX010226` are published as README illustrations (`docs/media/`); nothing else leaves the machine.
 
 ## 12. Sample footage (xErace 2025-05-17)
 
