@@ -11,8 +11,9 @@ from pathlib import Path
 from typing import Any
 
 from bibcut.cache import StageCache, fingerprint_file, stage_key
+from bibcut.crop import crop, torso_box
 from bibcut.decode import iter_frames, proxy_for
-from bibcut.interfaces import PersonDetector
+from bibcut.interfaces import NumberRecognizer, PersonDetector
 from bibcut.models import Detection, Tracklet
 from bibcut.track import Tracker, TrackerConfig
 
@@ -69,13 +70,13 @@ def detect_stage(
     return out, key
 
 
-def track_stage(workdir: Path, detect_key: str, config: TrackerConfig) -> Path:
-    """Track people across the cached detections; returns tracklets.json."""
+def track_stage(workdir: Path, detect_key: str, config: TrackerConfig) -> tuple[Path, str]:
+    """Track people across the cached detections; returns (tracklets.json, stage key)."""
     key = stage_key(stage="track", detect=detect_key, config=dataclasses.asdict(config))
     cache = StageCache(workdir, "track", key)
     out = cache.dir / "tracklets.json"
     if cache.is_valid():
-        return out
+        return out, key
 
     data = json.loads((workdir / "detect" / "detections.json").read_text())
     tracker = Tracker(config)
@@ -88,7 +89,84 @@ def track_stage(workdir: Path, detect_key: str, config: TrackerConfig) -> Path:
     ]
     _write_json(out, {"tracklets": tracklets})
     cache.commit()
-    return out
+    return out, key
+
+
+def read_stage(
+    video: Path,
+    workdir: Path,
+    track_key: str,
+    recognizer: NumberRecognizer,
+    recognizer_key: dict[str, Any],
+    *,
+    sample_fps: float,
+    start: float | None = None,
+    end: float | None = None,
+    min_height_px: int = 100,
+    hwaccel: str | None = None,
+    progress: Progress | None = None,
+) -> tuple[Path, str]:
+    """Read start numbers from torso crops of the full-resolution video; returns (readings.json,
+    stage key).
+
+    Frames are decoded on the sampling grid detection used, so every tracked detection's PTS comes
+    round again. Detections shorter than `min_height_px` in the full-resolution frame are skipped:
+    their number is too small to read.
+    """
+    key = stage_key(
+        stage="read",
+        track=track_key,
+        source=fingerprint_file(video),
+        recognizer=recognizer_key,
+        sample_fps=sample_fps,
+        start=start,
+        end=end,
+        min_height_px=min_height_px,
+    )
+    cache = StageCache(workdir, "read", key)
+    out = cache.dir / "readings.json"
+    if cache.is_valid():
+        return out, key
+
+    wanted: dict[float, list[tuple[int, Detection]]] = {}
+    for t in load_tracklets(workdir / "track" / "tracklets.json"):
+        for d in t.detections:
+            wanted.setdefault(_r(d.pts), []).append((t.id, d))
+    cache.begin()
+    readings = []
+    began = time.monotonic()
+    for frame in iter_frames(video, sample_fps=sample_fps, start=start, end=end, hwaccel=hwaccel):
+        for tracklet_id, d in wanted.pop(_r(frame.pts), []):
+            height_px = round((d.bbox[3] - d.bbox[1]) * frame.image.shape[0])
+            if height_px < min_height_px:
+                continue
+            candidates = recognizer.read(crop(frame.image, torso_box(d.bbox)))
+            readings.append({
+                "tracklet": tracklet_id,
+                "pts": d.pts,
+                "height_px": height_px,
+                "candidates": [[text, _r(c)] for text, c in candidates],
+            })  # fmt: skip
+        if progress and frame.index % 50 == 49:
+            progress(f"read: t={frame.pts:.1f}s, {len(readings)} crops, "
+                     f"{time.monotonic() - began:.0f}s elapsed")  # fmt: skip
+    if wanted:
+        raise RuntimeError(
+            f"{video}: {len(wanted)} tracked frames (first at {min(wanted)}s) not decoded; "
+            "was it tracked with the same sample rate and time range?"
+        )
+    readings.sort(key=lambda r: (r["tracklet"], r["pts"]))
+    _write_json(out, {"video": str(video), "readings": readings})
+    cache.commit()
+    return out, key
+
+
+def load_readings(path: Path) -> dict[int, list[list[tuple[str, float]]]]:
+    """Candidates of every read crop, grouped by tracklet."""
+    crops: dict[int, list[list[tuple[str, float]]]] = {}
+    for r in json.loads(path.read_text())["readings"]:
+        crops.setdefault(r["tracklet"], []).append([(t, c) for t, c in r["candidates"]])
+    return crops
 
 
 def load_tracklets(path: Path) -> list[Tracklet]:

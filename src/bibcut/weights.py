@@ -31,6 +31,21 @@ RFDETR_S = Weights(
 )
 
 
+PPOCRV5_EN_REC = Weights(
+    name="en_PP-OCRv5_mobile_rec",
+    url=(
+        "https://huggingface.co/PaddlePaddle/en_PP-OCRv5_mobile_rec_onnx/resolve/"
+        "3fafbc3b5dcf93dd72add9f48368be8a3a2cd33b/inference.onnx"
+    ),
+    sha256="b5f833dfc5d0eb71da397b4efa06ebeee9b431b690a47d6af40d77d8eabc557f",
+    license="Apache-2.0",
+    source=(
+        "Official PaddlePaddle ONNX export of the PP-OCRv5 English mobile text recognizer; "
+        "license per its model card, training data terms not stated (SPEC §9)."
+    ),
+)
+
+
 def models_dir() -> Path:
     """`$BIBCUT_MODELS_DIR`, else the user cache — independent of the working directory."""
     env = os.environ.get("BIBCUT_MODELS_DIR")

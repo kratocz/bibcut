@@ -15,7 +15,7 @@ Scaffolded; working towards milestone **M1** (see SPEC §10). Do not build featu
 ## Stack
 
 - Python 3.12+, managed with `uv` (build backend `uv_build`, `src/` layout); `ruff` for lint/format; `pytest` for tests
-- Video decoding, metadata and cutting all via the `ffmpeg`/`ffprobe` CLI as subprocesses. Do not switch decoding to PyAV: its binary wheels bundle `libx264`/`libx265` (GPL), which the licensing rule below keeps out of the core. Hardware decoding: `hwaccel="videotoolbox"` on macOS
+- Video decoding, metadata and cutting all via the `ffmpeg`/`ffprobe` CLI as subprocesses. Do not switch decoding to PyAV: its binary wheels bundle `libx264`/`libx265` (GPL), which the licensing rule below keeps out of the core. Hardware decoding: the CLI uses `videotoolbox` by default on macOS (bit-identical to software decoding on the sample footage, SPEC §12); `--hwaccel none` turns it off
 - Detection/tracking (with pose) and number recognition each behind a protocol in `src/bibcut/interfaces.py`, so backends can be swapped
 
 ## Commands
@@ -27,6 +27,7 @@ uv run ruff check            # lint
 uv run ruff format           # format
 uv run bibcut probe VIDEO    # print video metadata as JSON
 uv run bibcut track VIDEO --start 200 --end 320   # detect + track a segment; cache in data/work/<stem>
+uv run bibcut identify VIDEO --start 200 --end 320 --startlist START.csv   # + read numbers, vote per tracklet
 ```
 
 Model weights download on first use to `~/.cache/bibcut/models` (override with `BIBCUT_MODELS_DIR`).
@@ -41,7 +42,10 @@ Model weights download on first use to `~/.cache/bibcut/models` (override with `
 - `src/bibcut/weights.py` — pinned model weights (URL, SHA-256, license, provenance) and their download
 - `src/bibcut/detect.py` — RF-DETR person detector on onnxruntime (normalized boxes)
 - `src/bibcut/track.py` — own ByteTrack-style tracker on real time (PTS), numpy only
-- `src/bibcut/pipeline.py` — cached stages: `detect_stage` → `detect/detections.json`, `track_stage` → `track/tracklets.json`
+- `src/bibcut/crop.py` — torso band of a person box, pixel crops of normalized boxes
+- `src/bibcut/ocr.py` — PP-OCRv5 start-number recognizer: horizontal bands, digit-only CTC, numpy resize matching Pillow's bilinear
+- `src/bibcut/identify.py` — start list loading and confidence-weighted voting per tracklet
+- `src/bibcut/pipeline.py` — cached stages: `detect_stage` → `detect/detections.json`, `track_stage` → `track/tracklets.json`, `read_stage` → `read/readings.json` (full-resolution crops of tracked detections)
 - `src/bibcut/probe.py`, `src/bibcut/cli.py` — ffprobe wrapper and CLI
 
 ## Sample footage
