@@ -1,6 +1,6 @@
 # bibcut
 
-Find every rider in race footage by the start number on their jersey. bibcut tracks people through the video, reads their numbers whenever they become legible, and gives you each rider's on-camera intervals plus ready-to-run ffmpeg cuts of their moments.
+Find every rider in race footage by the start number on their jersey. bibcut tracks people through the video, reads their numbers whenever they become legible, and gives you each rider's on-camera intervals, timestamps for your YouTube video description, and ready-to-run ffmpeg cuts of their moments.
 
 <p align="center">
   <img src="docs/media/tracking.webp" width="100%" alt="Trackside race footage: riders coming off the track are tracked with boxes; identified riders carry a yellow label with their start number, which follows them even when the number is turned away or too close to read">
@@ -54,6 +54,18 @@ This writes to `data/out/race/`:
   }
   ```
 
+- `youtube.txt` — timestamps to paste into the video's YouTube description, where they become clickable links to each rider's moments:
+
+  ```text
+  Riders in this video:
+  - #98: 0:00:03 , 0:00:12 , 0:00:56 , 0:01:49 , 0:02:11 , 0:07:04 , 0:07:31
+  - #181: 0:01:20 , 0:02:51 , 0:03:38 , 0:05:09 , 0:06:16
+  - #218: 0:04:19 , 0:06:16
+  - #245: 0:00:59 , 0:01:48 , 0:02:43 , 0:03:28 , 0:06:16 , 0:07:35
+  ```
+
+  With names in the start list, a line reads `- #218 John Smith: 0:04:19 , 0:06:16`. If the uploaded video does not start where this one does (an edit, a compilation), shift the timestamps with `--youtube-offset SECONDS`.
+
 - `cuts/rider-<number>.sh` — one ffmpeg command per rider that joins their appearances into a single video:
 
   ```sh
@@ -75,6 +87,7 @@ Useful options:
 | `--config bibcut.toml` | tune `merge_gap` (join appearances closer than this, default 2 s), `padding` (default 0.5 s) and `min_appearance` (default 1 s) |
 | `--min-votes 2.0` | how much evidence a number needs before it is credited; lower finds more riders and makes more mistakes |
 | `--workdir DIR` | where intermediate results are cached (default `data/work/<video>`); re-runs with other options reuse them |
+| `--youtube-offset 95` | add seconds to the `youtube.txt` timestamps, for an upload that starts earlier or later |
 | `--hwaccel none` | decode and encode in software (e.g. off macOS or for debugging) |
 
 A 7.8-minute 4K GoPro clip takes about 20 minutes on a MacBook. If a GoPro low-resolution proxy (`.LRV`) sits next to the video, detection uses it and only number reading touches the 4K file. The other commands — `probe`, `track` and `identify` — run the earlier stages alone and print JSON, which helps when tuning.
@@ -89,7 +102,7 @@ flowchart LR
     C --> R[Read digits<br/>PP-OCRv5]
     R --> W[Vote per tracklet<br/>start list]
     W --> M[Merge per rider<br/>gap & padding]
-    M --> O[intervals.json/csv<br/>ffmpeg cuts]
+    M --> O[intervals.json/csv<br/>youtube.txt<br/>ffmpeg cuts]
 ```
 
 A rider's number is legible only now and then: too far, side-on, blurred, or too close to fit. So bibcut does not label frames, it labels *tracklets* — one person followed continuously. Every torso crop of a tracklet is read, the readings vote, and the winning number is credited for the tracklet's whole length:
@@ -113,7 +126,7 @@ bibcut identifies people only by the number they wear. There is no face recognit
 
 ## Roadmap
 
-Next (M2): a review step for unresolved tracks and doubtful numbers, YouTube description timestamps, and a "near camera" mode that keeps only the moments a rider is close. See [docs/SPEC.md](docs/SPEC.md) for the design and the milestones.
+Next (M2): a review step for unresolved tracks and doubtful numbers, and a "near camera" mode that keeps only the moments a rider is close. See [docs/SPEC.md](docs/SPEC.md) for the design and the milestones.
 
 ## License
 

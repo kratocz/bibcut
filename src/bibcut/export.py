@@ -1,9 +1,11 @@
-"""Output files (SPEC §5): intervals.json, intervals.csv and one ffmpeg cut script per rider."""
+"""Output files (SPEC §5): intervals.json, intervals.csv, youtube.txt and one ffmpeg cut script
+per rider."""
 
 from __future__ import annotations
 
 import csv
 import json
+import math
 import shlex
 from pathlib import Path
 
@@ -19,10 +21,13 @@ def write_outputs(
     unresolved: list[Unresolved],
     *,
     encoder: list[str] | None = None,
+    youtube_offset: float = 0.0,
 ) -> list[Path]:
     """Write all outputs into `out_dir`; returns the paths written.
 
     `encoder` is ffmpeg output options for the video of the cuts (ffmpeg's default without).
+    `youtube_offset` shifts the YouTube timestamps, for an upload that does not start where this
+    video starts.
     """
     out_dir.mkdir(parents=True, exist_ok=True)
     data = {
@@ -51,6 +56,11 @@ def write_outputs(
         for t in timelines:
             for a in t.appearances:
                 writer.writerow([t.number, t.name or "", a.start, a.end, a.confidence, a.source])
+    paths.append(out_dir / "youtube.txt")
+    paths[-1].write_text(
+        youtube_description(timelines, start_time=info.start_time, offset=youtube_offset),
+        encoding="utf-8",
+    )
 
     cuts = out_dir / "cuts"
     cuts.mkdir(exist_ok=True)
@@ -61,6 +71,32 @@ def write_outputs(
         script.chmod(0o755)
         paths.append(script)
     return paths
+
+
+def youtube_description(
+    timelines: list[RiderTimeline], *, start_time: float = 0.0, offset: float = 0.0
+) -> str:
+    """Timestamp lines for a YouTube video description, one line per rider.
+
+    Each timestamp is where an appearance starts, in whole seconds rounded down so the link
+    lands just before the rider shows up. Times are PTS minus the container start (what a
+    player shows) plus `offset`. YouTube turns `h:mm:ss` in a description into links.
+    """
+    lines = ["Riders in this video:"]
+    for t in timelines:
+        stamps = []
+        for a in t.appearances:
+            stamp = _hms(a.start - start_time + offset)
+            if stamp not in stamps:
+                stamps.append(stamp)
+        who = f"#{t.number} {t.name}" if t.name else f"#{t.number}"
+        lines.append(f"- {who}: {' , '.join(stamps)}")
+    return "\n".join(lines) + "\n"
+
+
+def _hms(seconds: float) -> str:
+    s = max(0, math.floor(seconds))
+    return f"{s // 3600}:{s // 60 % 60:02d}:{s % 60:02d}"
 
 
 def cut_command(

@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from bibcut.export import videotoolbox_encoder, write_outputs
+from bibcut.export import videotoolbox_encoder, write_outputs, youtube_description
 from bibcut.models import Appearance, RiderTimeline
 from bibcut.probe import probe
 from bibcut.timeline import Unresolved
@@ -62,3 +62,30 @@ def test_cut_with_videotoolbox(av_video: Path, tmp_path: Path) -> None:
     out = probe(tmp_path / "cuts" / "rider-7.mp4")
     assert out.codec == "hevc"
     assert out.duration == pytest.approx(1.0, abs=0.1)
+
+
+def test_youtube_description() -> None:
+    timelines = [
+        RiderTimeline("11", None, [Appearance(23.9, 30.0, 1.0), Appearance(620.2, 625.0, 1.0)]),
+        RiderTimeline("218", "Jane Doe", [Appearance(3725.5, 3730.0, 1.0)]),
+    ]
+    assert youtube_description(timelines) == (
+        "Riders in this video:\n- #11: 0:00:23 , 0:10:20\n- #218 Jane Doe: 1:02:05\n"
+    )
+
+
+def test_youtube_description_shifts_and_clamps() -> None:
+    timelines = [
+        RiderTimeline("7", None, [Appearance(10.4, 12.0, 1.0), Appearance(10.9, 13.0, 1.0)])
+    ]
+    assert youtube_description(timelines, start_time=10.0, offset=-5) == (
+        "Riders in this video:\n- #7: 0:00:00\n"
+    )
+    assert youtube_description(timelines, offset=90) == "Riders in this video:\n- #7: 0:01:40\n"
+
+
+def test_writes_youtube_txt(av_video: Path, tmp_path: Path) -> None:
+    write_outputs(tmp_path, probe(av_video), _timelines(), [], youtube_offset=60)
+    assert (tmp_path / "youtube.txt").read_text(encoding="utf-8") == (
+        "Riders in this video:\n- #7 Řidič Sedm: 0:01:00 , 0:01:02\n- #12: 0:01:01\n"
+    )

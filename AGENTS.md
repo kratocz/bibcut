@@ -48,7 +48,7 @@ Model weights download on first use to `~/.cache/bibcut/models` (override with `
 - `src/bibcut/identify.py` — start list loading and confidence-weighted voting per tracklet
 - `src/bibcut/pipeline.py` — cached stages: `detect_stage` → `detect/detections.json`, `track_stage` → `track/tracklets.json`, `read_stage` → `read/readings.json` (full-resolution crops of tracked detections)
 - `src/bibcut/timeline.py` — per-rider appearances from identified tracklets (merge gap, minimum appearance, padding) and the unresolved list
-- `src/bibcut/export.py` — `intervals.json`, `intervals.csv` and one ffmpeg cut script per rider
+- `src/bibcut/export.py` — `intervals.json`, `intervals.csv`, `youtube.txt` and one ffmpeg cut script per rider
 - `src/bibcut/probe.py`, `src/bibcut/cli.py` — ffprobe wrapper and CLI
 - `docs/media/` — README illustrations (see the data rule below)
 

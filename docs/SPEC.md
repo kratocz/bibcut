@@ -57,7 +57,7 @@ Finding by hand when each rider was on screen is tedious. bibcut automates it.
 ```
 
 - `intervals.csv` — one row per appearance.
-- `youtube.txt` — per-rider timestamp lines for the video description. YouTube *chapters* need a single non-overlapping timeline (first at 0:00, at least three, each at least 10 s), which overlapping riders cannot satisfy, so chapters are generated only for laps/heats, if at all.
+- `youtube.txt` — per-rider timestamp lines for the video description: `Riders in this video:`, then `- #<number>[ <name>]: h:mm:ss , h:mm:ss …`, one timestamp per appearance start (rounded down to the second, relative to the container start, shifted by `--youtube-offset`). Done ahead of M2. YouTube *chapters* need a single non-overlapping timeline (first at 0:00, at least three, each at least 10 s), which overlapping riders cannot satisfy, so chapters are generated only for laps/heats, if at all.
 - `cuts/` — one shell script per rider with one ffmpeg command, e.g.:
 
 ```sh
@@ -114,7 +114,7 @@ Each stage caches its output so later stages can be re-run without re-processing
 
 - **M0** — repository, spec, agent guidance.
 - **M1** — CLI: on one real video, generates participation intervals for most riders and ffmpeg makes cuts from them. → **switch the repository to public.** Reached 2026-10-23: 55 % of identifiable riders, 4 % wrong riders (section 12); public since.
-- **M2** — start list mapping, YouTube export, manual review flow, near-camera interval mode.
+- **M2** — start list mapping, YouTube export (done early: `youtube.txt`), manual review flow, near-camera interval mode.
 - **M3** — robustness: handheld footage, multiple videos per event, packaging.
 
 ## 11. Open questions

@@ -139,7 +139,9 @@ def _cmd_intervals(args: argparse.Namespace) -> int:
     out = args.out or Path("data") / "out" / args.video.stem
     # The media engine both decodes and encodes; --hwaccel none keeps the cuts in software too.
     encoder = videotoolbox_encoder(info) if _hwaccel(args) == "videotoolbox" else None
-    write_outputs(out, info, timelines, unresolved, encoder=encoder)
+    write_outputs(
+        out, info, timelines, unresolved, encoder=encoder, youtube_offset=args.youtube_offset
+    )
     summary = {
         "out": str(out),
         "riders": {t.number: len(t.appearances) for t in timelines},
@@ -201,6 +203,12 @@ def build_parser() -> argparse.ArgumentParser:
     _add_identify_args(p)
     p.add_argument("--config", type=Path, help="TOML with merge_gap, padding, min_appearance")
     p.add_argument("--out", type=Path, help="output directory (default: data/out/<video stem>)")
+    p.add_argument(
+        "--youtube-offset",
+        type=float,
+        default=0.0,
+        help="seconds to add to youtube.txt timestamps (the upload starts elsewhere)",
+    )
     p.set_defaults(func=_cmd_intervals)
 
     return parser
