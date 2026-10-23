@@ -23,6 +23,16 @@ def tiny_video(tmp_path_factory: pytest.TempPathFactory) -> Path:
 
 
 @pytest.fixture(scope="session")
+def av_video(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """4 s of the test pattern with a sine tone, for cutting."""
+    return _make_video(
+        tmp_path_factory.mktemp("video") / "av.mp4",
+        "-f", "lavfi", "-i", "sine=frequency=440:sample_rate=48000",
+        "-t", "4", "-c:a", "aac",
+    )  # fmt: skip
+
+
+@pytest.fixture(scope="session")
 def vfr_video(tmp_path_factory: pytest.TempPathFactory) -> Path:
     """10 frames whose timestamps are n*n/25 s — anything but index x fps.
 

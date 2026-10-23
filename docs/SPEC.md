@@ -58,14 +58,15 @@ Finding by hand when each rider was on screen is tedious. bibcut automates it.
 
 - `intervals.csv` — one row per appearance.
 - `youtube.txt` — per-rider timestamp lines for the video description. YouTube *chapters* need a single non-overlapping timeline (first at 0:00, at least three, each at least 10 s), which overlapping riders cannot satisfy, so chapters are generated only for laps/heats, if at all.
-- `cuts/` — one ffmpeg command (or rendered file) per rider, e.g.:
+- `cuts/` — one shell script per rider with one ffmpeg command, e.g.:
 
 ```sh
-ffmpeg -i race.mp4 \
-  -vf  "select='between(t,80,86)+between(t,221,229)',setpts=N/FRAME_RATE/TB" \
-  -af "aselect='between(t,80,86)+between(t,221,229)',asetpts=N/SR/TB" \
-  rider-07.mp4
+ffmpeg -ss 80 -to 86 -i race.mp4 -ss 221 -to 229 -i race.mp4 \
+  -filter_complex '[0:v:0][0:a:0][1:v:0][1:a:0]concat=n=2:v=1:a=1[v][a]' \
+  -map '[v]' -map '[a]' rider-7.mp4
 ```
+
+  Each appearance is its own input trimmed by input seeking, so ffmpeg decodes only the appearances (a `select` filter over the whole file would decode all of it for every rider). Seek times are PTS minus the container start time. On macOS the video is encoded with `hevc_videotoolbox` at the source bit rate.
 
 ## 6. Pipeline
 
@@ -76,7 +77,7 @@ ffmpeg -i race.mp4 \
 5. **Legibility** — start with an OCR-confidence threshold; add a dedicated classifier only if needed. M1 reads only people at least 100 px tall in the full-resolution frame.
 6. **Number recognition** per frame (scene-text recognition / OCR). If a start list is given, constrain candidates to its numbers. M1: PP-OCRv5 English mobile recognizer (ONNX, `onnxruntime`) on overlapping horizontal bands of the torso crop, output masked to digits, 1–3 digits per reading.
 7. **Tracklet consolidation** — confidence-weighted voting across frames (M1: each crop votes for its most confident reading on the start list; a number needs a summed confidence of 2.0). If readings change mid-tracklet (likely a tracker ID switch in a pack), split the tracklet at that point.
-8. **Identity merge** — tracklets with the same number form the rider's timeline; merge gaps shorter than *merge gap*, apply *padding*.
+8. **Identity merge** — tracklets with the same number form the rider's timeline; merge gaps shorter than *merge gap*, apply *padding*. M1 drops merged spans shorter than *minimum appearance* before padding, clamps padding to the processed time range, and gives each appearance the share of its tracklets' votes that went to its number as confidence. Tracklets with readings but no credited number are listed as unresolved.
 9. **Review** — unresolved tracklets with thumbnails for manual labelling; labels feed back into step 8.
 10. **Export** (section 5).
 
@@ -144,6 +145,7 @@ Observed on 2026-10-22 from contact sheets and a handful of full-resolution fram
 - **Trackside footage** (left camera, `GX010226`–`GX010229`, ~13:00–13:50: the camera stands at track level by the barrier and riders ride towards and away from it; the right camera's files of the same names are gallery shots from the morning). Same pipeline on `GX010226` 100–220 s: 228 tracklets, 2,894 torso crops (20 MB). With motion measured as net displacement ≥ 1 box height/s, 16 of 156 moving tracklets got a vote sum ≥ 2.0, against 1 of 60 for the gallery segment measured the same way; still ones 7 of 72 (gallery 21 of 69). By eye on the three tallest crops of each of the 23 confident tracklets: 13 clearly right, 10 too blurred to judge, none visibly wrong. Twelve distinct numbers were read in the two minutes, most of them on the back of riders riding away from the camera; a rider such as 245 is read again on several laps. Readings are limited by motion blur (indoor light, slow shutter) more than by resolution: crops of 300–500 px are often unreadable even by eye. Recall per rider is still unmeasured — it needs a ground truth of who was on track.
 - **Core number reading** (`bibcut identify`, `ocr.PPOCR` + `identify.vote`): on the 21 hand-labelled gallery tracklets the same result as the experiment — 18 right by vote, 14 credited at 2.0, none wrong. The numpy resize matches Pillow's bilinear within 1 grey level. On `GX010226` 100–220 s: 2,905 crops read in 367 s (4K decode with VideoToolbox plus ~42 ms per crop for seven bands), 29 of 247 tracklets named, 15 distinct numbers. Each crop now votes for its best reading on the start list (the experiment used only its best reading overall) and reads raw frames instead of JPEG crops, which keeps all 23 experiment names and adds 6. Two of the six are visibly wrong, both the same failure: a number read only in part credited as a shorter listed number. Bib 263 is not on the transcribed start list, so its strong unlisted reading "263" was dropped and "63" won; bib 235 was never read whole, and "5" won over the unlisted "35". A rule withholding a number that is part of a longer reading with half its support was tried and rejected: the recognizer also adds spurious edge digits ("141" for 14, "987" for 98, "789" for 89), so it withdrew a name confirmed by eye. Mitigations left for later: a complete start list, and showing strong unlisted readings in the review (M2).
 - **VideoToolbox decoding** gives bit-identical frames and timestamps to software decoding on both the 4K HEVC file and its LRV proxy (five frames each, max abs difference 0), so the CLI uses it by default on macOS.
+- **Intervals and cuts** (`bibcut intervals`, default merge gap 2 s, padding 0.5 s, minimum appearance 1 s, on `GX010226` 100–220 s): 15 riders with 24 appearances (median 7.4 s, 199 s in all; rider 245 has three, one per lap past the camera), 124 unresolved tracklets. Two of the 15 riders are the wrong numbers described above (63, 5). Cutting re-encodes: one 6.6 s appearance of 4K 119.88 fps took 65 s with ffmpeg's default libx264 (44 MB) and 11.5 s with `hevc_videotoolbox` at 60 Mbit/s (51 MB, no visible loss); the default now is VideoToolbox at the source bit rate (119 Mbit/s), which cut rider 245's three appearances (41.6 s) in 79 s into 625 MB. Recall — how many riders on track got an interval — is still unmeasured.
 - **Camera placement:** mostly on a gallery above the track, moved between files. It sees almost the whole circuit. A few files are from track level, the pit or the registration area. *Correction (2026-10-23):* the camera is **not** static within a file — in `GX010217` the view pans between 240 s and 263 s and is reframed by 315 s. A fixed track region per file will not hold; the region filter must follow the camera (or work per static segment).
 - **Lighting:** indoor hall, warm cast, low light; frames are soft (compression, some motion blur).
 - **Numbers:** 1–3 digits, 5–268 at this event (58 of the 74 have three digits). Black digits on a white rectangle on a black jersey, with the "xERACE" logo above and below — high contrast.

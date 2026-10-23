@@ -16,11 +16,16 @@ class VideoInfo:
     width: int
     height: int
     duration: float
+    # Container start; ffmpeg's -ss counts from here, PTS from zero.
+    start_time: float
     # Nominal rate from the container; time itself always comes from PTS.
     fps: float
     # True when the stream declares a varying frame rate (avg differs from the base rate).
     variable_frame_rate: bool
     creation_time: str | None
+    has_audio: bool
+    # Video stream bit rate in bit/s, when the container states it.
+    bit_rate: int | None
 
 
 def _rate(value: str) -> Fraction:
@@ -55,7 +60,10 @@ def probe(path: Path) -> VideoInfo:
         width=int(video["width"]),
         height=int(video["height"]),
         duration=float(fmt.get("duration") or video.get("duration") or 0.0),
+        start_time=float(fmt.get("start_time") or 0.0),
         fps=float(avg or base),
         variable_frame_rate=bool(avg) and avg != base,
         creation_time=fmt.get("tags", {}).get("creation_time"),
+        bit_rate=int(video["bit_rate"]) if video.get("bit_rate") else None,
+        has_audio=any(s.get("codec_type") == "audio" for s in data["streams"]),
     )

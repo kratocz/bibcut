@@ -71,7 +71,8 @@ def _cmd_track(args: argparse.Namespace) -> int:
     return 0
 
 
-def _cmd_identify(args: argparse.Namespace) -> int:
+def _identified(args: argparse.Namespace):
+    """Track, read and vote; returns (tracklets, crops per tracklet, identities, start list)."""
     from bibcut import weights
     from bibcut.identify import load_startlist, vote
     from bibcut.ocr import PPOCR
@@ -95,9 +96,19 @@ def _cmd_identify(args: argparse.Namespace) -> int:
     )
     crops = load_readings(readings_path)
     valid = set(startlist) if startlist is not None else None
+    tracklets = load_tracklets(tracklets_path)
+    identities = {
+        t.id: vote(t.id, crops.get(t.id, []), valid=valid, min_votes=args.min_votes)
+        for t in tracklets
+    }
+    return tracklets, crops, identities, startlist
+
+
+def _cmd_identify(args: argparse.Namespace) -> int:
+    tracklets, crops, identities, startlist = _identified(args)
     rows = []
-    for t in load_tracklets(tracklets_path):
-        result = vote(t.id, crops.get(t.id, []), valid=valid, min_votes=args.min_votes)
+    for t in tracklets:
+        result = identities[t.id]
         rows.append({
             "id": t.id,
             "start": t.start,
@@ -108,6 +119,33 @@ def _cmd_identify(args: argparse.Namespace) -> int:
             "votes": [[n, round(v, 3)] for n, v in result.votes[:3]],
         })  # fmt: skip
     print(json.dumps({"workdir": str(_workdir(args)), "tracklets": rows}, indent=2))
+    return 0
+
+
+def _cmd_intervals(args: argparse.Namespace) -> int:
+    from bibcut.config import load_config
+    from bibcut.export import videotoolbox_encoder, write_outputs
+    from bibcut.probe import probe
+    from bibcut.timeline import build_timelines
+
+    config = load_config(args.config)
+    info = probe(args.video)
+    tracklets, _, identities, startlist = _identified(args)
+    start = args.start if args.start is not None else info.start_time
+    end = args.end if args.end is not None else info.start_time + info.duration
+    timelines, unresolved = build_timelines(
+        tracklets, identities, config, bounds=(start, end), names=startlist
+    )
+    out = args.out or Path("data") / "out" / args.video.stem
+    # The media engine both decodes and encodes; --hwaccel none keeps the cuts in software too.
+    encoder = videotoolbox_encoder(info) if _hwaccel(args) == "videotoolbox" else None
+    write_outputs(out, info, timelines, unresolved, encoder=encoder)
+    summary = {
+        "out": str(out),
+        "riders": {t.number: len(t.appearances) for t in timelines},
+        "unresolved": len(unresolved),
+    }
+    print(json.dumps(summary, indent=2))
     return 0
 
 
@@ -122,6 +160,14 @@ def _add_tracking_args(p: argparse.ArgumentParser) -> None:
     p.add_argument(
         "--hwaccel",
         help='ffmpeg hardware decoder (default: "videotoolbox" on macOS), "none" for software',
+    )
+
+
+def _add_identify_args(p: argparse.ArgumentParser) -> None:
+    p.add_argument("--startlist", type=Path, help="CSV with number,name; restricts readings")
+    p.add_argument("--min-height", type=int, default=100, help="person height in px to read")
+    p.add_argument(
+        "--min-votes", type=float, default=2.0, help="summed confidence to credit a number"
     )
 
 
@@ -144,12 +190,18 @@ def build_parser() -> argparse.ArgumentParser:
         "identify", help="track people and read their start numbers; print tracklets as JSON"
     )
     _add_tracking_args(p)
-    p.add_argument("--startlist", type=Path, help="CSV with number,name; restricts readings")
-    p.add_argument("--min-height", type=int, default=100, help="person height in px to read")
-    p.add_argument(
-        "--min-votes", type=float, default=2.0, help="summed confidence to credit a number"
-    )
+    _add_identify_args(p)
     p.set_defaults(func=_cmd_identify)
+
+    p = sub.add_parser(
+        "intervals",
+        help="per-rider intervals: write intervals.json, intervals.csv and ffmpeg cut scripts",
+    )
+    _add_tracking_args(p)
+    _add_identify_args(p)
+    p.add_argument("--config", type=Path, help="TOML with merge_gap, padding, min_appearance")
+    p.add_argument("--out", type=Path, help="output directory (default: data/out/<video stem>)")
+    p.set_defaults(func=_cmd_intervals)
 
     return parser
 

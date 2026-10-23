@@ -28,6 +28,7 @@ uv run ruff format           # format
 uv run bibcut probe VIDEO    # print video metadata as JSON
 uv run bibcut track VIDEO --start 200 --end 320   # detect + track a segment; cache in data/work/<stem>
 uv run bibcut identify VIDEO --start 200 --end 320 --startlist START.csv   # + read numbers, vote per tracklet
+uv run bibcut intervals VIDEO --start 200 --end 320 --startlist START.csv  # + per-rider intervals and cut scripts in data/out/<stem>
 ```
 
 Model weights download on first use to `~/.cache/bibcut/models` (override with `BIBCUT_MODELS_DIR`).
@@ -46,6 +47,8 @@ Model weights download on first use to `~/.cache/bibcut/models` (override with `
 - `src/bibcut/ocr.py` — PP-OCRv5 start-number recognizer: horizontal bands, digit-only CTC, numpy resize matching Pillow's bilinear
 - `src/bibcut/identify.py` — start list loading and confidence-weighted voting per tracklet
 - `src/bibcut/pipeline.py` — cached stages: `detect_stage` → `detect/detections.json`, `track_stage` → `track/tracklets.json`, `read_stage` → `read/readings.json` (full-resolution crops of tracked detections)
+- `src/bibcut/timeline.py` — per-rider appearances from identified tracklets (merge gap, minimum appearance, padding) and the unresolved list
+- `src/bibcut/export.py` — `intervals.json`, `intervals.csv` and one ffmpeg cut script per rider
 - `src/bibcut/probe.py`, `src/bibcut/cli.py` — ffprobe wrapper and CLI
 
 ## Sample footage
