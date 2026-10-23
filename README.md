@@ -9,7 +9,7 @@ Find every rider in race footage by the start number on their jersey. bibcut tra
 
 ## Demo
 
-The whole 7:49 clip behind these pictures is [on YouTube](https://youtu.be/j7sgVd98ICA). Its description is bibcut's unedited `youtube.txt` for it, so every timestamp there is a link that jumps to the moment a rider comes into view. Being raw output, a few links point to the wrong rider (see Status below).
+The whole 7:49 clip behind these pictures is [on YouTube](https://youtu.be/j7sgVd98ICA). Its **description** is bibcut's unedited `youtube.txt` for it, so every timestamp there is a link that jumps to the moment a rider comes into view. Being raw output, a few links point to the wrong rider (see Status below).
 
 ```text
 Riders in this video:
