@@ -26,7 +26,10 @@ uv run pytest                # tests (needs ffmpeg on PATH; video tests skip wit
 uv run ruff check            # lint
 uv run ruff format           # format
 uv run bibcut probe VIDEO    # print video metadata as JSON
+uv run bibcut track VIDEO --start 200 --end 320   # detect + track a segment; cache in data/work/<stem>
 ```
+
+Model weights download on first use to `~/.cache/bibcut/models` (override with `BIBCUT_MODELS_DIR`).
 
 ## Layout
 
@@ -35,6 +38,10 @@ uv run bibcut probe VIDEO    # print video metadata as JSON
 - `src/bibcut/cache.py` — per-stage output cache keyed by input fingerprint + stage parameters
 - `src/bibcut/config.py` — optional TOML run config (SPEC §4)
 - `src/bibcut/decode.py` — streaming RGB frames with PTS from `ffmpeg` (sampling, resize, time range, hwaccel) and GoPro proxy lookup
+- `src/bibcut/weights.py` — pinned model weights (URL, SHA-256, license, provenance) and their download
+- `src/bibcut/detect.py` — RF-DETR person detector on onnxruntime (normalized boxes)
+- `src/bibcut/track.py` — own ByteTrack-style tracker on real time (PTS), numpy only
+- `src/bibcut/pipeline.py` — cached stages: `detect_stage` → `detect/detections.json`, `track_stage` → `track/tracklets.json`
 - `src/bibcut/probe.py`, `src/bibcut/cli.py` — ffprobe wrapper and CLI
 
 ## Sample footage

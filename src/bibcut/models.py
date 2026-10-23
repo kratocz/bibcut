@@ -1,7 +1,8 @@
 """Data passed between pipeline stages (SPEC §6).
 
 All times are seconds on the video's presentation timeline (PTS), never frame index x fps.
-Boxes and keypoints are in pixels of the decoded frame.
+Boxes and keypoints are normalized to [0, 1] of the frame's width and height, so they apply equally
+to a proxy and to the full-resolution file.
 """
 
 from __future__ import annotations

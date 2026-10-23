@@ -1,12 +1,12 @@
-"""Swappable backends (AGENTS.md: detection/tracking, pose and number recognition).
+"""Swappable backends (AGENTS.md: detection, pose and number recognition).
 
 Each backend lives behind one of these protocols so that a licence-incompatible or heavy
-implementation can be replaced without touching the pipeline.
+implementation can be replaced without touching the pipeline. Tracking is bibcut's own
+(`bibcut.track`) and works on any detector's output.
 """
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Iterator
 from typing import Protocol
 
 import numpy as np
@@ -15,13 +15,16 @@ import numpy.typing as npt
 from bibcut.models import Detection, Frame
 
 
-class PersonTracker(Protocol):
-    """Detects and tracks people; yields (track id, detection) per frame.
+class PersonDetector(Protocol):
+    """Detects people in one frame.
 
-    Backends that also estimate pose fill `Detection.keypoints` in the same pass.
+    `input_size` is the (width, height) the frame must be decoded to. Backends that also
+    estimate pose fill `Detection.keypoints` in the same pass.
     """
 
-    def track(self, frames: Iterable[Frame]) -> Iterator[tuple[int, Detection]]: ...
+    input_size: tuple[int, int]
+
+    def detect(self, frame: Frame) -> list[Detection]: ...
 
 
 class NumberRecognizer(Protocol):
