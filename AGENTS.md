@@ -10,7 +10,7 @@ bibcut identifies race participants in video by the number on their jersey/bib a
 
 ## Status
 
-Scaffolded; working towards milestone **M1** (see SPEC §10). Do not build features beyond the current milestone without asking.
+Milestone **M1** reached on 2026-10-23 (SPEC §10 and §12: 23 of 42 identifiable riders on a whole trackside video); the repository is public since. Next is **M2**, which has not started: do not build its features without asking.
 
 ## Stack
 

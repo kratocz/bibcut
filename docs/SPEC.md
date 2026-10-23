@@ -113,7 +113,7 @@ Each stage caches its output so later stages can be re-run without re-processing
 ## 10. Milestones
 
 - **M0** — repository, spec, agent guidance.
-- **M1** — CLI: on one real video, generates participation intervals for most riders and ffmpeg makes cuts from them. → **switch the repository to public.**
+- **M1** — CLI: on one real video, generates participation intervals for most riders and ffmpeg makes cuts from them. → **switch the repository to public.** Reached 2026-10-23: 55 % of identifiable riders, 4 % wrong riders (section 12); public since.
 - **M2** — start list mapping, YouTube export, manual review flow, near-camera interval mode.
 - **M3** — robustness: handheld footage, multiple videos per event, packaging.
 
