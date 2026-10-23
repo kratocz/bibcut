@@ -3,9 +3,26 @@
 Find every rider in race footage by the start number on their jersey. bibcut tracks people through the video, reads their numbers whenever they become legible, and gives you each rider's on-camera intervals, timestamps for your YouTube video description, and ready-to-run ffmpeg cuts of their moments.
 
 <p align="center">
-  <img src="docs/media/tracking.webp" width="100%" alt="Trackside race footage: riders coming off the track are tracked with boxes; identified riders carry a yellow label with their start number, which follows them even when the number is turned away or too close to read">
+  <a href="https://youtu.be/j7sgVd98ICA"><img src="docs/media/tracking.webp" width="100%" alt="Trackside race footage: riders coming off the track are tracked with boxes; identified riders carry a yellow label with their start number, which follows them even when the number is turned away or too close to read"></a>
 </p>
 <p align="center"><sub>Real output on trackside footage from an indoor race of electric boards and unicycles (xErace, Prague, 2025). Yellow: riders bibcut identified. The label covers the rider's whole track, including the moments their number cannot be read. Grey: people it tracks but has not identified.</sub></p>
+
+## Demo
+
+The whole 7:49 clip behind these pictures is [on YouTube](https://youtu.be/j7sgVd98ICA). Its description is bibcut's unedited `youtube.txt` for it, so every timestamp there is a link that jumps to the moment a rider comes into view. Being raw output, a few links point to the wrong rider (see Status below).
+
+```text
+Riders in this video:
+- #98: 0:00:03 , 0:00:12 , 0:00:56 , 0:01:49 , 0:02:11 , 0:07:04 , 0:07:31
+- #181: 0:01:20 , 0:02:51 , 0:03:38 , 0:05:09 , 0:06:16
+- #218: 0:04:19 , 0:06:16
+- #245: 0:00:59 , 0:01:48 , 0:02:43 , 0:03:28 , 0:06:16 , 0:07:35
+…
+```
+
+<p align="center">
+  <a href="https://youtu.be/j7sgVd98ICA"><img src="docs/media/demo.jpg" width="60%" alt="Play the demo video on YouTube: trackside race footage with riders labelled by start number"></a>
+</p>
 
 ## Status
 
@@ -54,17 +71,7 @@ This writes to `data/out/race/`:
   }
   ```
 
-- `youtube.txt` — timestamps to paste into the video's YouTube description, where they become clickable links to each rider's moments:
-
-  ```text
-  Riders in this video:
-  - #98: 0:00:03 , 0:00:12 , 0:00:56 , 0:01:49 , 0:02:11 , 0:07:04 , 0:07:31
-  - #181: 0:01:20 , 0:02:51 , 0:03:38 , 0:05:09 , 0:06:16
-  - #218: 0:04:19 , 0:06:16
-  - #245: 0:00:59 , 0:01:48 , 0:02:43 , 0:03:28 , 0:06:16 , 0:07:35
-  ```
-
-  With names in the start list, a line reads `- #218 John Smith: 0:04:19 , 0:06:16`. If the uploaded video does not start where this one does (an edit, a compilation), shift the timestamps with `--youtube-offset SECONDS`.
+- `youtube.txt` — timestamps to paste into the video's YouTube description, where they become clickable links to each rider's moments (see the [Demo](#demo) above). With names in the start list, a line reads `- #218 John Smith: 0:04:19 , 0:06:16`. If the uploaded video does not start where this one does (an edit, a compilation), shift the timestamps with `--youtube-offset SECONDS`.
 
 - `cuts/rider-<number>.sh` — one ffmpeg command per rider that joins their appearances into a single video:
 
