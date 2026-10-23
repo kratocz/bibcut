@@ -32,7 +32,7 @@ Finding by hand when each rider was on screen is tedious. bibcut automates it.
 
 - **Video** — any format ffmpeg can decode. A fixed (tripod) trackside camera is the primary case; handheld footage is secondary.
 - **Start list** (optional) — CSV: `number,name[,extra columns]`.
-- **Config** (optional) — track region of interest (polygon), merge gap, padding, minimum appearance length.
+- **Config** (optional) — track region of interest (polygon), merge gap, padding, minimum appearance length. M1 parses the region of interest but does not apply it yet (step 3).
 
 ## 5. Outputs
 
@@ -51,10 +51,12 @@ Finding by hand when each rider was on screen is tedious. bibcut automates it.
     }
   ],
   "unresolved": [
-    { "tracklet_id": 42, "start": 95.2, "end": 97.1, "thumbnail": "review/42.jpg" }
+    { "tracklet_id": 42, "start": 95.2, "end": 97.1, "votes": [["98", 1.2]] }
   ]
 }
 ```
+
+`unresolved` lists tracklets with readings too weak to credit a number, with their summed votes per number; thumbnails for the review step (M2) are not written yet.
 
 - `intervals.csv` — one row per appearance.
 - `youtube.txt` — per-rider timestamp lines for the video description: `Riders in this video:`, then `- #<number>[ <name>]: h:mm:ss , h:mm:ss …`, one timestamp per appearance start (rounded down to the second, relative to the container start, shifted by `--youtube-offset`). Done ahead of M2. YouTube *chapters* need a single non-overlapping timeline (first at 0:00, at least three, each at least 10 s), which overlapping riders cannot satisfy, so chapters are generated only for laps/heats, if at all.
@@ -71,8 +73,8 @@ ffmpeg -ss 80 -to 86 -i race.mp4 -ss 221 -to 229 -i race.mp4 \
 ## 6. Pipeline
 
 1. **Decode** frames with presentation timestamps (PTS); support variable-frame-rate footage. Decoding runs the `ffmpeg` CLI as a subprocess (licensing: binary FFmpeg bundled in Python wheels such as PyAV's includes GPL encoders). When a GoPro proxy exists, detection and tracking read the proxy and only number reading touches the full-resolution file.
-2. **Detect & track** people → *tracklets* (track id, per-frame bbox, timestamps). M1 detector: RF-DETR Small (ONNX via `onnxruntime`, CPU) on the whole proxy frame scaled to 512×512 by ffmpeg. Tracker: bibcut's own ByteTrack-style implementation (constant-velocity Kalman filter, greedy IoU matching in two passes by score) on `numpy` only. No pose model in M1 — no pose weights with a stated permissive license were found.
-3. **Filter** tracklets outside the track region of interest or too short (spectators, marshals).
+2. **Detect & track** people → *tracklets* (track id, per-frame bbox, timestamps). M1 detector: RF-DETR Small (ONNX via `onnxruntime`, CPU) on the whole proxy frame scaled to 512×512 by ffmpeg. Tracker: bibcut's own ByteTrack-style implementation (constant-velocity Kalman filter, greedy matching by centre distance in box heights, in two passes: confident, then weak detections) on `numpy` only. No pose model in M1 — no pose weights with a stated permissive license were found.
+3. **Filter** tracklets outside the track region of interest or too short (spectators, marshals). Not in M1: every tracklet goes on to number reading (people under 100 px tall excepted), and short appearances are dropped only at step 8.
 4. **Torso crop**, for both front and back views. M1 estimates it from the person box; pose keypoints (shoulders → hips) can replace the estimate later if it is not good enough.
 5. **Legibility** — start with an OCR-confidence threshold; add a dedicated classifier only if needed. M1 reads only people at least 100 px tall in the full-resolution frame.
 6. **Number recognition** per frame (scene-text recognition / OCR). If a start list is given, constrain candidates to its numbers. M1: PP-OCRv5 English mobile recognizer (ONNX, `onnxruntime`) on overlapping horizontal bands of the torso crop, output masked to digits, 1–3 digits per reading.
@@ -114,7 +116,7 @@ Each stage caches its output so later stages can be re-run without re-processing
 
 - **M0** — repository, spec, agent guidance.
 - **M1** — CLI: on one real video, generates participation intervals for most riders and ffmpeg makes cuts from them. → **switch the repository to public.** Reached 2026-10-23: 55 % of identifiable riders, 4 % wrong riders (section 12); public since.
-- **M2** — start list mapping, YouTube export (done early: `youtube.txt`), manual review flow, near-camera interval mode.
+- **M2** — start list mapping (done in M1: `--startlist`), YouTube export (done early: `youtube.txt`), manual review flow, near-camera interval mode.
 - **M3** — robustness: handheld footage, multiple videos per event, packaging.
 
 ## 11. Open questions
@@ -131,7 +133,7 @@ Each stage caches its output so later stages can be re-run without re-processing
 - ~~Detector/tracker backend and its license~~ — RF-DETR Small + own tracker (section 6, step 2).
 - RF-DETR ONNX provenance: the official weights are PyTorch only; M1 uses a third-party ONNX export (Hugging Face `saifkhichi96/opendetect`, card license apache-2.0) pinned by SHA-256. It works on our footage, but equality with the official weights is not verified. Fallback if it disappears: export from the official weights (needs PyTorch) and mirror the file in a release of this repository (Apache 2.0 allows it).
 - Review UI: CLI/TUI vs a small local web page.
-- Sample footage for development — riders' consent for anything that leaves the local machine (test fixtures stay synthetic). Decided 2026-10-23 by the footage's author: a short annotated clip, one rider's crops and a timeline chart from `GX010226` are published as README illustrations (`docs/media/`); nothing else leaves the machine.
+- Sample footage for development — riders' consent for anything that leaves the local machine (test fixtures stay synthetic). Decided 2026-10-23 by the footage's author: a short annotated clip, a still from it, one rider's crops and a timeline chart from `GX010226` are published as README illustrations (`docs/media/`), and the whole `GX010226` clip is public on YouTube with bibcut's `youtube.txt` (numbers only, no names) in its description; nothing else leaves the machine.
 
 ## 12. Sample footage (xErace 2025-05-17)
 

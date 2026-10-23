@@ -58,7 +58,7 @@ number,name
 
 This writes to `data/out/race/`:
 
-- `intervals.json` and `intervals.csv` — every rider's appearances, plus the tracks it could not identify:
+- `intervals.json` and `intervals.csv` — every rider's appearances; the JSON also lists the tracks it could not identify:
 
   ```json
   {
@@ -115,10 +115,10 @@ flowchart LR
 A rider's number is legible only now and then: too far, side-on, blurred, or too close to fit. So bibcut does not label frames, it labels *tracklets* — one person followed continuously. Every torso crop of a tracklet is read, the readings vote, and the winning number is credited for the tracklet's whole length:
 
 <p align="center">
-  <img src="docs/media/reading.jpg" width="100%" alt="Six torso crops of one rider over time with their readings: 748 when far away, 218 three times at medium distance, 18 when partly cut off, nothing legible when too close; the vote over 123 crops gives 218 with 13.2 against 28 with 1.8, credited for the whole 24.6-second tracklet">
+  <img src="docs/media/reading.jpg" width="100%" alt="Six torso crops of one rider over time with their readings: 748 when far away, 218 twice at medium distance, 18 when partly cut off, nothing legible when too close, and 218 again close up; the vote over 123 crops gives 218 with 13.2 against 28 with 1.8, credited for the whole 24.6-second tracklet">
 </p>
 
-Tracklets with the same number are merged into the rider's timeline. Tracks whose number is never legible end up in the `unresolved` list instead of being guessed.
+Tracklets with the same number are merged into the rider's timeline. Tracks whose readings are too weak to credit a number end up in the `unresolved` list instead of being guessed; tracks with no reading at all are left out.
 
 ## Limits
 

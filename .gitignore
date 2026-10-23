@@ -24,7 +24,6 @@ output/
 *.onnx
 *.engine
 startlist*.csv
-!tests/fixtures/**
 
 # IDE / OS / secrets
 .idea/
