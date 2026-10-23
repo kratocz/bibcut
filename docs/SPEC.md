@@ -70,9 +70,9 @@ ffmpeg -i race.mp4 \
 ## 6. Pipeline
 
 1. **Decode** frames with presentation timestamps (PTS); support variable-frame-rate footage. Decoding runs the `ffmpeg` CLI as a subprocess (licensing: binary FFmpeg bundled in Python wheels such as PyAV's includes GPL encoders). When a GoPro proxy exists, detection and tracking read the proxy and only number reading touches the full-resolution file.
-2. **Detect & track** people → *tracklets* (track id, per-frame bbox, timestamps). A pose model provides keypoints in the same pass.
+2. **Detect & track** people → *tracklets* (track id, per-frame bbox, timestamps). M1 detector: RF-DETR Small (ONNX via `onnxruntime`, CPU) on the whole proxy frame scaled to 512×512 by ffmpeg. Tracker: bibcut's own ByteTrack-style implementation (constant-velocity Kalman filter, greedy IoU matching in two passes by score) on `numpy` only. No pose model in M1 — no pose weights with a stated permissive license were found.
 3. **Filter** tracklets outside the track region of interest or too short (spectators, marshals).
-4. **Torso crop** from pose keypoints (shoulders → hips), for both front and back views.
+4. **Torso crop**, for both front and back views. M1 estimates it from the person box; pose keypoints (shoulders → hips) can replace the estimate later if it is not good enough.
 5. **Legibility** — start with an OCR-confidence threshold; add a dedicated classifier only if needed.
 6. **Number recognition** per frame (scene-text recognition / OCR). If a start list is given, constrain candidates to its numbers.
 7. **Tracklet consolidation** — confidence-weighted voting across frames. If readings change mid-tracklet (likely a tracker ID switch in a pack), split the tracklet at that point.
@@ -103,6 +103,9 @@ Each stage caches its output so later stages can be re-run without re-processing
 ## 9. Constraints
 
 - **License:** MIT. No GPL/AGPL/non-commercial code or dependencies in the core; AGPL backends (e.g. Ultralytics) only as an optional extra.
+  - "Dependency" includes what a package's published wheels bundle. This excludes PyAV (wheels bundle `libx264`/`libx265`), OpenCV (`opencv-python` and `-headless` 5.0 macOS wheels bundle `libx264`, `libx265`, `libpostproc`, `libvidstab`, `librubberband`), and anything requiring them (`supervision` → PyAV; Roboflow `trackers` → `supervision`, OpenCV). Checked 2026-10-23 by listing the wheels' native libraries.
+  - External programs run as subprocesses (the `ffmpeg`/`ffprobe` CLI) are not linked or shipped and are fine, whatever their build's license.
+  - Model weights need a stated permissive license. bibcut never commits or redistributes them: it downloads them from a pinned URL and verifies a pinned SHA-256.
 - **Privacy:** race footage and start lists are personal data and never go into the repository. Publishing per-rider clips is the publisher's responsibility (riders' consent). No face recognition.
 - Runs locally; GPU optional (CPU must work, just slower).
 
@@ -119,8 +122,9 @@ Each stage caches its output so later stages can be re-run without re-processing
 - ~~Number format~~ — answered by the sample footage (section 12).
 - ~~Does the GoPro LRV proxy share the exact timeline of its MP4?~~ — yes (section 12).
 - Heat structure: the results show six columns per rider and category, presumably rounds. Can a heat schedule be recovered, to cross-check participation intervals?
-- OCR backend: PARSeq vs PaddleOCR vs a small local VLM.
-- Detector/tracker backend and its license.
+- OCR backend: PARSeq vs PP-OCR recognition vs a small local VLM vs a digit classifier trained on our crops. Constraint from section 9: run as ONNX through `onnxruntime` (the PaddleOCR and RapidOCR packages require OpenCV); weight licenses not checked yet.
+- ~~Detector/tracker backend and its license~~ — RF-DETR Small + own tracker (section 6, step 2).
+- RF-DETR ONNX provenance: the official weights are PyTorch only; M1 uses a third-party ONNX export (Hugging Face `saifkhichi96/opendetect`, card license apache-2.0) pinned by SHA-256. It works on our footage, but equality with the official weights is not verified. Fallback if it disappears: export from the official weights (needs PyTorch) and mirror the file in a release of this repository (Apache 2.0 allows it).
 - Review UI: CLI/TUI vs a small local web page.
 - Sample footage for development — riders' consent for anything that leaves the local machine (test fixtures stay synthetic).
 
@@ -133,6 +137,7 @@ Observed on 2026-10-22 from contact sheets and a handful of full-resolution fram
 - **Chapters:** GoPro splits long recordings into chapter files (`GX01nnnn`, `GX02nnnn`, `GX03nnnn` = one recording), so one recording can span several files.
 - **Proxies:** every MP4 has an `.LRV` proxy (768×432 H.264). Its timeline matches the MP4 frame for frame: identical PTS lists (7805 frames in `GX010206`), and LRV frame *n* matches the downscaled MP4 frame *n* at both ends of the file (pixel MSE ~17 at offset 0 vs ≥ 360 at ±1).
 - **Decoding speed** (M1 Max, 10 s of 4K at 119.88 fps): software HEVC 57 fps, VideoToolbox 239 fps, LRV 1421 fps. One camera's day (7.3 h) is therefore ~15 h, ~3.7 h and ~37 min of pure decoding. Through `bibcut.decode` with 10 fps sampling: LRV ~15× real time, 4K via VideoToolbox scaled to 1080p ~1.6× real time.
+- **Person detection** (RF-DETR, one gallery frame of `GX010217` with ~10 riders on track and ~7 people off it): the whole frame at 512×512 finds every rider on the track, including the far ones (~60 px tall at 4K); the LRV proxy gives the same on-track result as the downscaled 4K frame. Tiling (2×2, 3×2) adds only a few very distant people plus false positives on a banner showing motorcyclists. RF-DETR Small takes ~0.45 s per frame on the M1 Max CPU; the CoreML execution provider is slower (the graph splits into ~100 partitions) and takes ~2 min to compile.
 - **Camera placement:** mostly on a gallery above the track, static within a file and moved between files. It sees almost the whole circuit. A few files are from track level, the pit or the registration area.
 - **Lighting:** indoor hall, warm cast, low light; frames are soft (compression, some motion blur).
 - **Numbers:** 1–3 digits, 5–268 at this event (58 of the 74 have three digits). Black digits on a white rectangle on a black jersey, with the "xERACE" logo above and below — high contrast.

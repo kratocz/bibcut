@@ -44,7 +44,8 @@ The development footage (SPEC §12) is read in place from an external disk and n
 ## Hard rules
 
 - **Never commit data:** videos, extracted frames, rider crops, start lists with real names, or model weights. They are personal data and/or large. Everything lives under `data/` (gitignored). Tests use tiny synthetic fixtures in `tests/fixtures/`.
-- **Licensing:** the project is MIT. Do not add dependencies or copied code under GPL/AGPL or non-commercial licenses to the core. `mkoshkina/jersey-number-pipeline` (CC BY-NC 3.0) is a design reference only — do not copy its code. An AGPL backend (e.g. Ultralytics) may only be added as an optional, separately installed extra, and only after asking.
+- **Licensing:** the project is MIT. Do not add dependencies or copied code under GPL/AGPL or non-commercial licenses to the core. `mkoshkina/jersey-number-pipeline` (CC BY-NC 3.0) is a design reference only — do not copy its code. An AGPL backend (e.g. Ultralytics) may only be added as an optional, separately installed extra, and only after asking. A dependency's license includes the native libraries its wheels bundle: PyAV, OpenCV and packages requiring them are out (SPEC §9). Before adding any dependency with native code, list the libraries in its macOS and Linux wheels.
+- **Model weights** are never committed or redistributed. They are downloaded from a pinned URL, verified against a pinned SHA-256, and need a stated permissive license.
 - **No face recognition.** Riders are identified by their number only.
 - **Time comes from frame timestamps (PTS)**, not frame index × nominal fps — phone footage is often variable frame rate.
 - Outputs must be deterministic for the same input and config.
