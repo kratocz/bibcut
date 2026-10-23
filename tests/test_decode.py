@@ -25,8 +25,15 @@ def test_sample_fps_keeps_a_time_grid(tiny_video: Path) -> None:
 
 def test_sample_fps_on_vfr_keeps_original_timestamps(vfr_video: Path) -> None:
     pts = [f.pts for f in iter_frames(vfr_video, sample_fps=1)]
-    # 0, then 5*5/25 = 1.0 (exactly on the grid), then 8*8/25 = 2.56 (first >= 2.0)
-    assert pts == pytest.approx([0.0, 1.0, 2.56], abs=1e-3)
+    # First frame in each 1 s interval: 0, 5*5/25 = 1.0 (exactly on the line), 8*8/25 = 2.56,
+    # 9*9/25 = 3.24; the original timestamps are kept.
+    assert pts == pytest.approx([0.0, 1.0, 2.56, 3.24], abs=1e-3)
+
+
+def test_sample_grid_does_not_drift(tiny_video: Path) -> None:
+    # 25 fps source, 10 fps grid: one frame per 0.1 s interval, not one every 0.12 s.
+    pts = [f.pts for f in iter_frames(tiny_video, sample_fps=10)]
+    assert pts == pytest.approx([0, 0.12, 0.2, 0.32, 0.4, 0.52, 0.6, 0.72, 0.8, 0.92], abs=1e-3)
 
 
 def test_resize(tiny_video: Path) -> None:

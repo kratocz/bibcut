@@ -24,7 +24,8 @@ from bibcut.probe import probe
 
 _SHOWINFO = re.compile(r"Parsed_showinfo.*\bpts_time:\s*(-?[\d.]+)")
 _GOPRO = re.compile(r"G[XH](\d{2})(\d{4})", re.IGNORECASE)
-# Half a millisecond of slack so a frame exactly on the sampling grid is not skipped by rounding.
+# Half a millisecond of slack so a frame exactly on a grid line is not pushed into the previous
+# interval by floating-point rounding.
 _GRID_SLACK = 5e-4
 _DONE = object()
 
@@ -53,8 +54,8 @@ def iter_frames(
 ) -> Iterator[Frame]:
     """Yield RGB frames of `video` in presentation order.
 
-    sample_fps: keep a frame only once at least 1/sample_fps s have passed since the last kept
-        one; timestamps stay those of the source frames.
+    sample_fps: keep the first frame in each 1/sample_fps s interval of the source timeline, so
+        the grid does not drift; timestamps stay those of the source frames.
     size: (width, height) to scale to; defaults to the stream's size.
     start, end: limit to [start, end) seconds on the source timeline.
     hwaccel: ffmpeg hardware decoder, e.g. "videotoolbox".
@@ -62,8 +63,9 @@ def iter_frames(
     width, height = size or _native_size(video)
     filters = []
     if sample_fps is not None:
-        step = 1 / sample_fps - _GRID_SLACK
-        filters.append(f"select='isnan(prev_selected_t)+gte(t-prev_selected_t,{step})'")
+        bucket = f"floor((t+{_GRID_SLACK})*{sample_fps})"
+        prev = f"floor((prev_selected_t+{_GRID_SLACK})*{sample_fps})"
+        filters.append(f"select='isnan(prev_selected_t)+gt({bucket},{prev})'")
     filters += [f"scale={width}:{height}", "format=rgb24", "showinfo"]
 
     cmd = ["ffmpeg", "-nostdin", "-hide_banner", "-nostats", "-v", "info"]
